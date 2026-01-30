@@ -35,6 +35,16 @@ const elements = {
     checkModelsBtn: document.getElementById('check-models-btn'),
     modelListOutput: document.getElementById('model-list-output'),
 
+    // Edit Modal Elements
+    editModal: document.getElementById('edit-item-modal'),
+    closeEditModalBtn: document.getElementById('close-edit-modal'),
+    editNameInput: document.getElementById('edit-name-zh'),
+    editPriceInput: document.getElementById('edit-price'),
+    editCategoryInput: document.getElementById('edit-category'),
+    editIndexInput: document.getElementById('edit-item-index'),
+    saveItemBtn: document.getElementById('save-item-btn'),
+    deleteItemBtn: document.getElementById('delete-item-btn'),
+
     // Result Elements
     resultTotal: document.getElementById('result-total'),
     resultDate: document.getElementById('result-date'),
@@ -54,6 +64,8 @@ let chartInstance = null;
 // --- Initialization ---
 function init() {
     setupEventListeners();
+    setupEditListeners();
+
 
     // Legacy migration: fix broken 1.5 models
     if (STATE.model.includes('gemini-1.5-flash') || STATE.model.includes('gemini-1.5-pro')) {
@@ -133,6 +145,60 @@ function updateView(viewId) {
     if (viewId === 'view-stats') {
         renderStats();
     }
+}
+
+// --- Edit Logic ---
+function setupEditListeners() {
+    elements.closeEditModalBtn.addEventListener('click', () => {
+        elements.editModal.classList.add('hidden');
+    });
+
+    elements.saveItemBtn.addEventListener('click', () => {
+        const index = parseInt(elements.editIndexInput.value);
+        const name = elements.editNameInput.value;
+        const price = parseFloat(elements.editPriceInput.value);
+        const category = elements.editCategoryInput.value;
+
+        if (!name || isNaN(price)) {
+            alert('請輸入有效的名稱與價格');
+            return;
+        }
+
+        // Update Data
+        STATE.currentScanResult.items[index].name_zh = name;
+        STATE.currentScanResult.items[index].price = price;
+        STATE.currentScanResult.items[index].category = category;
+
+        recalculateTotal();
+        renderResult(STATE.currentScanResult); // Re-render list
+        elements.editModal.classList.add('hidden');
+    });
+
+    elements.deleteItemBtn.addEventListener('click', () => {
+        const index = parseInt(elements.editIndexInput.value);
+        if (confirm('確定要刪除此項目嗎？')) {
+            STATE.currentScanResult.items.splice(index, 1);
+            recalculateTotal();
+            renderResult(STATE.currentScanResult);
+            elements.editModal.classList.add('hidden');
+        }
+    });
+}
+
+function recalculateTotal() {
+    const total = STATE.currentScanResult.items.reduce((sum, item) => sum + item.price, 0);
+    STATE.currentScanResult.total = total;
+    elements.resultTotal.textContent = `${STATE.currentScanResult.currency || ''} ${total}`;
+}
+
+function openEditModal(index) {
+    const item = STATE.currentScanResult.items[index];
+    elements.editIndexInput.value = index;
+    elements.editNameInput.value = item.name_zh;
+    elements.editPriceInput.value = item.price;
+    elements.editCategoryInput.value = item.category;
+
+    elements.editModal.classList.remove('hidden');
 }
 
 // --- Image Handling ---
@@ -276,7 +342,7 @@ function renderResult(data) {
     elements.resultDate.textContent = data.date;
 
     elements.resultItems.innerHTML = '';
-    data.items.forEach(item => {
+    data.items.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = 'item-row';
         div.innerHTML = `
@@ -285,9 +351,22 @@ function renderResult(data) {
                 <span class="item-category">${item.category}</span>
                 <small style="color:#aaa">(${item.name})</small>
             </div>
-            <div class="item-price">${item.price}</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div class="item-price">${item.price}</div>
+                <button class="icon-btn edit-btn" data-index="${index}" style="font-size:1.2rem; padding:4px;">
+                    <i class="ri-pencil-line"></i>
+                </button>
+            </div>
         `;
         elements.resultItems.appendChild(div);
+    });
+
+    // Attach click events to new buttons
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = e.currentTarget.dataset.index;
+            openEditModal(index);
+        });
     });
 }
 
