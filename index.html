@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收據掃描小幫手</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Remix Icon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="ri-bill-line"></i>
+                <h1>收據小幫手</h1>
+            </div>
+            <button id="settings-btn" class="icon-btn"><i class="ri-settings-3-line"></i></button>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+
+            <!-- VIEW: SCAN (Default) -->
+            <section id="view-scan" class="active-view">
+
+                <!-- Input Area -->
+                <div class="card input-card">
+                    <div class="upload-area" id="drop-zone">
+                        <i class="ri-camera-lens-line"></i>
+                        <p>點擊拍攝或上傳收據</p>
+                        <input type="file" id="file-input" accept="image/*" capture="environment" hidden>
+                    </div>
+                </div>
+
+                <!-- Preview Area (Hidden by default) -->
+                <div id="preview-container" class="preview-container hidden">
+                    <img id="image-preview" alt="Receipt Preview">
+                    <button id="analyze-btn" class="primary-btn">
+                        <i class="ri-sparkling-fill"></i> 開始分析
+                    </button>
+                    <button id="retake-btn" class="text-btn">重選圖片</button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state hidden">
+                    <div class="spinner"></div>
+                    <p>AI 正在解讀收據內容...</p>
+                    <small>正在翻譯並計算金額</small>
+                </div>
+
+                <!-- Result Area -->
+                <div id="result-container" class="result-container hidden">
+                    <div class="summary-card">
+                        <h3>本次總計</h3>
+                        <div class="total-amount" id="result-total">$0</div>
+                        <div class="date-badge" id="result-date">2023-10-27</div>
+                    </div>
+
+                    <div class="items-list" id="result-items">
+                        <!-- Items will be injected here -->
+                    </div>
+
+                    <button id="save-result-btn" class="secondary-btn full-width">
+                        <i class="ri-save-line"></i> 確認並儲存
+                    </button>
+                </div>
+            </section>
+
+            <!-- VIEW: STATS -->
+            <section id="view-stats" class="view-section">
+                <div class="month-selector">
+                    <button id="prev-month"><i class="ri-arrow-left-s-line"></i></button>
+                    <h2 id="current-month-display">2023年 10月</h2>
+                    <button id="next-month"><i class="ri-arrow-right-s-line"></i></button>
+                </div>
+
+                <div class="card stats-card">
+                    <h3>本月總支出</h3>
+                    <div class="monthly-total" id="monthly-total-display">$0</div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3>分類統計</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="category-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="history-list">
+                    <h3>歷史紀錄</h3>
+                    <div id="history-items-container">
+                        <!-- History items -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-target="view-scan">
+                <i class="ri-qr-scan-2-line"></i>
+                <span>掃描</span>
+            </button>
+            <button class="nav-item" data-target="view-stats">
+                <i class="ri-pie-chart-2-line"></i>
+                <span>統計</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>設定</h2>
+                <button class="close-modal"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Google Gemini API Key</label>
+                    <input type="password" id="api-key-input" placeholder="請輸入您的 API Key">
+                    <small>您的 Key 僅會儲存在瀏覽器中，用於呼叫 AI 服務。</small>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="help-link">如何取得 Key?</a>
+                </div>
+                <div class="form-group">
+                    <label>選擇 AI 模型</label>
+                    <select id="model-select"
+                        style="width: 100%; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-md);">
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (標準版)</option>
+                        <option value="gemini-2.0-flash-lite-001">Gemini 2.0 Flash Lite (輕量版 I)</option>
+                        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (輕量版 II)</option>
+                        <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    </select>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button id="check-models-btn" class="secondary-btn"
+                            style="margin-top:0; padding: 8px;">檢查可用模型</button>
+                    </div>
+                    <small>如果遇到 "Not Found" 錯誤，請點擊上方按鈕查看您的 Key 支援哪些模型。</small>
+                    <pre id="model-list-output"
+                        style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.8rem; display: none; white-space: pre-wrap; word-break: break-all;"></pre>
+                </div>
+                <button id="save-settings-btn" class="primary-btn">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
